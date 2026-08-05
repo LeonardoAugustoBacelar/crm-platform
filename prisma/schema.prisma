@@ -1,0 +1,234 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum OpportunityStatus {
+  OPEN
+  WON
+  LOST
+}
+
+enum ActivityType {
+  CALL
+  EMAIL
+  MEETING
+  TASK
+  NOTE
+}
+
+/// Um tenant do SaaS. Toda tabela de dados de negócio carrega organizationId
+/// e todo acesso a dados DEVE ser filtrado por ele — é o limite de isolamento
+/// entre clientes do CRM (ver src/server/repositories).
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  memberships   Membership[]
+  companies     Company[]
+  contacts      Contact[]
+  pipelines     Pipeline[]
+  opportunities Opportunity[]
+  activities    Activity[]
+
+  @@map("organizations")
+}
+
+/// Uma pessoa que pode logar. Não pertence a uma organização diretamente —
+/// a relação (e o papel dela) fica em Membership, pra já suportar um usuário
+/// em mais de uma organização no futuro.
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  memberships        Membership[]
+  ownedCompanies     Company[]     @relation("CompanyOwner")
+  ownedOpportunities Opportunity[] @relation("OpportunityOwner")
+  ownedActivities    Activity[]    @relation("ActivityOwner")
+
+  @@map("users")
+}
+
+/// Vínculo N:N entre User e Organization, com o papel do usuário naquele
+/// tenant específico.
+model Membership {
+  id        String   @id @default(cuid())
+  role      Role     @default(MEMBER)
+  createdAt DateTime @default(now())
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@map("memberships")
+}
+
+/// Uma conta/empresa que o time de vendas está trabalhando (o "cliente do
+/// cliente" — não confundir com Organization, que é o tenant do SaaS).
+model Company {
+  id        String   @id @default(cuid())
+  name      String
+  domain    String?
+  industry  String?
+  size      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  ownerId String?
+  owner   User?   @relation("CompanyOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+
+  contacts      Contact[]
+  opportunities Opportunity[]
+  activities    Activity[]
+
+  @@index([organizationId])
+  @@map("companies")
+}
+
+model Contact {
+  id        String   @id @default(cuid())
+  name      String
+  email     String?
+  phone     String?
+  jobTitle  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  companyId String?
+  company   Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
+
+  opportunities Opportunity[]
+  activities    Activity[]
+
+  @@index([organizationId])
+  @@index([companyId])
+  @@map("contacts")
+}
+
+/// Um funil de vendas. Uma organização pode ter mais de um (ex: "Vendas
+/// Novas" e "Renovação").
+model Pipeline {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  stages        PipelineStage[]
+  opportunities Opportunity[]
+
+  @@index([organizationId])
+  @@map("pipelines")
+}
+
+model PipelineStage {
+  id          String @id @default(cuid())
+  name        String
+  /// Posição da etapa dentro do funil (0, 1, 2...), define a ordem no Kanban.
+  order       Int
+  /// Chance estimada de fechar o negócio nessa etapa, 0-100.
+  probability Int    @default(0)
+
+  pipelineId String
+  pipeline   Pipeline @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+
+  opportunities Opportunity[]
+
+  @@index([pipelineId])
+  @@map("pipeline_stages")
+}
+
+model Opportunity {
+  id                String            @id @default(cuid())
+  title             String
+  /// Valor em centavos (evita erro de ponto flutuante com dinheiro).
+  valueCents        Int
+  currency          String            @default("BRL")
+  status            OpportunityStatus @default(OPEN)
+  expectedCloseDate DateTime?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  companyId String?
+  company   Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
+
+  contactId String?
+  contact   Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+
+  pipelineId String
+  pipeline   Pipeline @relation(fields: [pipelineId], references: [id], onDelete: Restrict)
+
+  stageId String
+  stage   PipelineStage @relation(fields: [stageId], references: [id], onDelete: Restrict)
+
+  ownerId String?
+  owner   User?   @relation("OpportunityOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+
+  activities Activity[]
+
+  @@index([organizationId])
+  @@index([stageId])
+  @@map("opportunities")
+}
+
+/// Interação registrada (ligação, e-mail, reunião, tarefa ou nota),
+/// associada opcionalmente a uma empresa, contato e/ou oportunidade.
+model Activity {
+  id          String       @id @default(cuid())
+  type        ActivityType
+  notes       String?
+  dueAt       DateTime?
+  completedAt DateTime?
+  createdAt   DateTime     @default(now())
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  companyId String?
+  company   Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  contactId String?
+  contact   Contact? @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  opportunityId String?
+  opportunity   Opportunity? @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+
+  ownerId String?
+  owner   User?   @relation("ActivityOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@map("activities")
+}
