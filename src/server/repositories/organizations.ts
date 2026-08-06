@@ -15,6 +15,28 @@ export async function getOrganizationSummary(organizationId: string) {
   const companyCount = await prisma.company.count({ where: { organizationId } });
   const contactCount = await prisma.contact.count({ where: { organizationId } });
   const openOpportunityCount = await prisma.opportunity.count({ where: { organizationId, status: "OPEN" } });
+  const openValue = await prisma.opportunity.aggregate({
+    where: { organizationId, status: "OPEN" },
+    _sum: { valueCents: true },
+  });
 
-  return { organization, companyCount, contactCount, openOpportunityCount };
+  return {
+    organization,
+    companyCount,
+    contactCount,
+    openOpportunityCount,
+    openValueCents: openValue._sum.valueCents ?? 0,
+  };
+}
+
+export function getRecentOpportunities(organizationId: string, limit: number) {
+  return prisma.opportunity.findMany({
+    where: { organizationId },
+    orderBy: { createdAt: "desc" },
+    take: limit,
+    include: {
+      company: { select: { name: true } },
+      stage: { select: { name: true } },
+    },
+  });
 }

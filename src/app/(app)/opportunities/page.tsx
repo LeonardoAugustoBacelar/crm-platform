@@ -4,13 +4,10 @@ import { listPipelines } from "@/server/repositories/pipelines";
 import { listCompanies } from "@/server/repositories/companies";
 import { listContacts } from "@/server/repositories/contacts";
 import { createOpportunityAction } from "@/server/actions/opportunities";
+import { KanbanBoard } from "@/components/kanban-board";
 
 const inputClass =
   "rounded border border-neutral-300 px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-900";
-
-function formatCents(cents: number, currency: string) {
-  return (cents / 100).toLocaleString("pt-BR", { style: "currency", currency });
-}
 
 export default async function OpportunitiesPage() {
   const session = await auth();
@@ -98,43 +95,28 @@ export default async function OpportunitiesPage() {
         </p>
       )}
 
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b border-neutral-200 text-left text-neutral-500 dark:border-neutral-800">
-            <th className="py-2 font-medium">Título</th>
-            <th className="py-2 font-medium">Valor</th>
-            <th className="py-2 font-medium">Status</th>
-            <th className="py-2 font-medium">Etapa</th>
-            <th className="py-2 font-medium">Empresa</th>
-            <th className="py-2 font-medium">Contato</th>
-            <th className="py-2 font-medium">Criada em</th>
-          </tr>
-        </thead>
-        <tbody>
-          {opportunities.map((opportunity) => (
-            <tr key={opportunity.id} className="border-b border-neutral-100 dark:border-neutral-900">
-              <td className="py-2 font-medium">{opportunity.title}</td>
-              <td className="py-2 text-neutral-500">
-                {formatCents(opportunity.valueCents, opportunity.currency)}
-              </td>
-              <td className="py-2 text-neutral-500">{opportunity.status}</td>
-              <td className="py-2 text-neutral-500">
-                {opportunity.stage.pipeline.name} / {opportunity.stage.name}
-              </td>
-              <td className="py-2 text-neutral-500">{opportunity.company?.name ?? "—"}</td>
-              <td className="py-2 text-neutral-500">{opportunity.contact?.name ?? "—"}</td>
-              <td className="py-2 text-neutral-500">{opportunity.createdAt.toLocaleDateString("pt-BR")}</td>
-            </tr>
-          ))}
-          {opportunities.length === 0 && (
-            <tr>
-              <td colSpan={7} className="py-6 text-center text-neutral-400">
-                Nenhuma oportunidade cadastrada ainda.
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
+      {hasStages && (
+        <KanbanBoard
+          pipelines={pipelines.map((pipeline) => ({
+            id: pipeline.id,
+            name: pipeline.name,
+            stages: pipeline.stages.map((stage) => ({
+              id: stage.id,
+              name: stage.name,
+              order: stage.order,
+              probability: stage.probability,
+            })),
+          }))}
+          opportunities={opportunities.map((opportunity) => ({
+            id: opportunity.id,
+            title: opportunity.title,
+            valueCents: opportunity.valueCents,
+            currency: opportunity.currency,
+            companyName: opportunity.company?.name ?? null,
+            stageId: opportunity.stageId,
+          }))}
+        />
+      )}
     </div>
   );
 }

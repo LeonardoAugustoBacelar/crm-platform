@@ -63,3 +63,29 @@ export async function createOpportunity(organizationId: string, data: Opportunit
     },
   });
 }
+
+/** Move uma oportunidade pra outra etapa (drag-and-drop do Kanban). */
+export async function moveOpportunityStage(organizationId: string, opportunityId: string, stageId: string) {
+  // Sequencial em vez de Promise.all — ver nota em
+  // src/server/repositories/organizations.ts.
+  const opportunity = await prisma.opportunity.findFirst({
+    where: { id: opportunityId, organizationId },
+    select: { id: true },
+  });
+  if (!opportunity) {
+    throw new Error("Oportunidade não encontrada.");
+  }
+
+  const stage = await prisma.pipelineStage.findFirst({
+    where: { id: stageId, pipeline: { organizationId } },
+    select: { id: true, pipelineId: true },
+  });
+  if (!stage) {
+    throw new Error("Etapa inválida.");
+  }
+
+  return prisma.opportunity.update({
+    where: { id: opportunityId },
+    data: { stageId: stage.id, pipelineId: stage.pipelineId },
+  });
+}

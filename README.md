@@ -125,15 +125,15 @@ Detalhes que valem nota:
 - [x] Login/logout (Auth.js, Credentials + JWT, senha com bcrypt)
 - [x] Login social (Google, Microsoft) — opcional, por variável de ambiente (ver [Login social](#login-social))
 - [x] Proteção de rotas: middleware/proxy pra navegação (`src/proxy.ts`) **e** verificação independente em cada Server Action — nenhuma mutação confia só no proxy
-- [x] Dashboard com contagem de empresas/contatos/oportunidades da organização
+- [x] Dashboard com métricas (empresas, contatos, oportunidades em aberto, valor em aberto) e feed de oportunidades recentes
 - [x] Módulos de **Empresas**, **Contatos**, **Pipeline** (com etapas) e **Oportunidades** — CRUD (listar + criar) com tenant scoping de ponta a ponta
-- [x] Convite de membros pra uma organização existente, com link de convite, aceite por quem já tem conta e aceite criando conta nova (`/invite/[token]`)
+- [x] Kanban de verdade pra Oportunidades: board com drag-and-drop entre etapas (`src/components/kanban-board.tsx`), agrupado por pipeline, com valor total e contagem por coluna
+- [x] Convite de membros pra uma organização existente, com link de convite, aceite por quem já tem conta e aceite criando conta nova (`/invite/[token]`), com envio automático de e-mail via Resend (opcional)
 - [x] Suporte a usuário em múltiplas organizações, com troca de organização ativa em `/settings`
 - [x] Testes automatizados (Vitest) cobrindo os repositórios e o isolamento multi-tenant
+- [x] Deploy em produção (Vercel + Neon) — ver [Deploy](#deploy-vercel--neon)
 - [ ] Módulo de **Atividades** (ligação/e-mail/reunião/tarefa/nota) — modelo existe no schema, sem UI ainda
-- [ ] Kanban de verdade pro Pipeline (hoje é lista de etapas, não board com drag-and-drop)
-- [ ] Envio de e-mail de convite (hoje o link é gerado e mostrado em `/settings` pra copiar e mandar manualmente — não há provedor de e-mail integrado)
-- [ ] Deploy (ver Roadmap)
+- [ ] Edição e exclusão de registros (hoje só criar + listar/mover em todo módulo)
 
 ## Login social
 
@@ -169,6 +169,7 @@ src/
     slugify.ts              # usado no /signup e no primeiro login social
   components/
     social-login-buttons.tsx  # botões condicionais de Google/Microsoft
+    kanban-board.tsx          # board de Oportunidades com drag-and-drop (Client Component)
   test/helpers.ts           # utilitários compartilhados pelos testes de repositório
   auth.ts                  # config completa do Auth.js (Credentials + OAuth, Node runtime)
   auth.config.ts            # config "leve" sem provider Node — usada pelo proxy (Edge)
@@ -259,6 +260,5 @@ Depois do primeiro deploy: toda vez que você mudar `prisma/schema.prisma`, gere
 ## Roadmap
 
 - [ ] Módulo de **Atividades** — repetir o padrão de `src/app/(app)/companies` + `src/server/{repositories,actions}/companies.ts`
-- [ ] Kanban de verdade pro Pipeline (drag-and-drop entre etapas) — hoje é lista; precisa de um Client Component
-- [ ] Edição e exclusão de registros (hoje só criar + listar em todo módulo)
+- [ ] Edição e exclusão de registros (hoje só criar + listar/mover em todo módulo)
 - [ ] Login social em produção — código já pronto (ver [Login social](#login-social)), só falta gerar as credenciais reais e configurar na Vercel quando/se for usar
