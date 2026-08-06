@@ -1,13 +1,17 @@
 import { redirect } from "next/navigation";
 import { AuthError } from "next-auth";
 import { signIn } from "@/auth";
+import { SocialLoginButtons } from "@/components/social-login-buttons";
 
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; callbackUrl?: string }>;
 }) {
-  const { error } = await searchParams;
+  const { error, callbackUrl } = await searchParams;
+  // Só aceita um caminho relativo interno — nunca redireciona pra uma URL
+  // absoluta vinda de query param (evita open redirect).
+  const redirectTo = callbackUrl?.startsWith("/") ? callbackUrl : "/dashboard";
 
   async function login(formData: FormData) {
     "use server";
@@ -15,7 +19,7 @@ export default async function LoginPage({
       await signIn("credentials", {
         email: formData.get("email"),
         password: formData.get("password"),
-        redirectTo: "/dashboard",
+        redirectTo,
       });
     } catch (err) {
       // signIn() bem-sucedido lança um redirect internamente (NEXT_REDIRECT),
@@ -36,6 +40,8 @@ export default async function LoginPage({
           E-mail ou senha inválidos.
         </p>
       )}
+
+      <SocialLoginButtons redirectTo={redirectTo} />
 
       <form action={login} className="flex flex-col gap-3">
         <input

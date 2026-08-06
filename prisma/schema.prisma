@@ -46,6 +46,7 @@ model Organization {
   pipelines     Pipeline[]
   opportunities Opportunity[]
   activities    Activity[]
+  invitations   Invitation[]
 
   @@map("organizations")
 }
@@ -54,10 +55,13 @@ model Organization {
 /// a relação (e o papel dela) fica em Membership, pra já suportar um usuário
 /// em mais de uma organização no futuro.
 model User {
-  id           String   @id @default(cuid())
-  name         String
-  email        String   @unique
-  passwordHash String
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  /// Opcional porque login social (Google/Microsoft) não passa por senha —
+  /// só é obrigatório vir preenchido pro Credentials provider (ver
+  /// src/auth.ts). Nunca fica null pra usuário criado via /signup.
+  passwordHash String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -65,6 +69,7 @@ model User {
   ownedCompanies     Company[]     @relation("CompanyOwner")
   ownedOpportunities Opportunity[] @relation("OpportunityOwner")
   ownedActivities    Activity[]    @relation("ActivityOwner")
+  sentInvitations    Invitation[]
 
   @@map("users")
 }
@@ -84,6 +89,30 @@ model Membership {
 
   @@unique([organizationId, userId])
   @@map("memberships")
+}
+
+/// Convite pendente pra alguém entrar numa organização já existente (a
+/// única forma de virar membro hoje sem esse convite é criar uma
+/// organização nova no /signup). O token é a única credencial: quem tem o
+/// link consegue aceitar — por isso expira e é de uso único (`acceptedAt`).
+model Invitation {
+  id         String    @id @default(cuid())
+  email      String
+  role       Role      @default(MEMBER)
+  token      String    @unique
+  expiresAt  DateTime
+  acceptedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  invitedById String?
+  invitedBy   User?   @relation(fields: [invitedById], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([email])
+  @@map("invitations")
 }
 
 /// Uma conta/empresa que o time de vendas está trabalhando (o "cliente do

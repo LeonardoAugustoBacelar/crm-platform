@@ -1,4 +1,5 @@
 import { signUpAction } from "@/server/actions/auth";
+import { SocialLoginButtons } from "@/components/social-login-buttons";
 
 export default async function SignUpPage({
   searchParams,
@@ -15,6 +16,8 @@ export default async function SignUpPage({
       </div>
 
       {error && <p className="rounded bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-950">{error}</p>}
+
+      <SocialLoginButtons />
 
       <form action={signUpAction} className="flex flex-col gap-3">
         <input

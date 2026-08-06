@@ -10,5 +10,10 @@ export default defineConfig({
   },
   datasource: {
     url: process.env["DATABASE_URL"],
+    // `npx prisma dev` imprime as duas URLs quando sobe: a de shadow database
+    // usa a MESMA porta base só que +1 (ex: 51214 -> 51215), não um nome de
+    // banco diferente na mesma porta — copie o valor de SHADOW_DATABASE_URL
+    // exibido no terminal do `npx prisma dev` pro seu .env.
+    shadowDatabaseUrl: process.env["SHADOW_DATABASE_URL"],
   },
 });

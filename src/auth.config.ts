@@ -31,10 +31,22 @@ export const authConfig: NextAuthConfig = {
       if (!isProtected) return true;
       return !!auth?.user;
     },
-    jwt({ token, user }) {
+    jwt({ token, user, trigger, session }) {
       if (user) {
         token.organizationId = user.organizationId;
         token.role = user.role;
+      }
+      // Troca de organização (switchOrganizationAction) e aceite de convite
+      // por usuário já logado chamam unstable_update({ user: {...} }), que
+      // chega aqui como trigger "update" — sem tratar isso, o token nunca
+      // reflete a nova organizationId/role (só `user` cobre o login inicial).
+      if (trigger === "update" && session?.user) {
+        if (session.user.organizationId !== undefined) {
+          token.organizationId = session.user.organizationId;
+        }
+        if (session.user.role !== undefined) {
+          token.role = session.user.role;
+        }
       }
       return token;
     },
